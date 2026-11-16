@@ -62,6 +62,10 @@ def create_app(test_config=None):
     def index():
         return redirect(url_for("customers.list_customers"))
 
+    # Register database teardown and CLI command
+    from app import db
+    db.init_app(app)
+
     # Register blueprint if routes module exists
     try:
         from app.routes import bp as customers_bp
