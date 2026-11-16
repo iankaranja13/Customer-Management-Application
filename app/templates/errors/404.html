@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Page Not Found (404){% endblock %}
+
+{% block content %}
+<div class="card error-card">
+    <div class="error-code">404</div>
+    <h1 class="error-title">Page Not Found</h1>
+    <p class="error-message">
+        {{ error.description if error and error.description and error.description != 'The requested URL was not found on the server. If you entered the URL manually please check your spelling and try again.' else "The customer record or page you are looking for does not exist or may have been moved." }}
+    </p>
+    <div class="error-actions">
+        <a href="/customers" class="btn btn-primary">Back to Customers</a>
+    </div>
+</div>
+{% endblock %}
