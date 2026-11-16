@@ -122,11 +122,45 @@ def view_customer(id):
 
 @bp.route("/<int:id>/edit", methods=["GET", "POST"])
 def edit_customer(id):
-    """Placeholder for edit route, expanded in feature/update-customer."""
+    """Edit an existing customer profile."""
     customer = repository.get_customer_by_id(id)
     if customer is None:
         abort(404, description=f"Customer #{id} not found.")
-    return render_template("customers/form.html", is_edit=True, customer=customer, errors={})
+
+    if request.method == "POST":
+        is_valid, errors, cleaned = validate_customer_data(request.form)
+
+        # Check duplicate email ignoring current customer ID
+        if "email" not in errors and cleaned.get("email"):
+            existing = repository.get_customer_by_email(cleaned["email"])
+            if existing and existing["id"] != id:
+                errors["email"] = "A customer with this email address is already registered."
+                is_valid = False
+
+        if not is_valid:
+            flash("Please correct the errors in the form.", "danger")
+            form_data = dict(request.form)
+            form_data["id"] = id
+            return (
+                render_template(
+                    "customers/form.html",
+                    is_edit=True,
+                    customer=form_data,
+                    errors=errors,
+                ),
+                422,
+            )
+
+        repository.update_customer(id, cleaned)
+        flash(f"Customer {cleaned['first_name']} {cleaned['last_name']} updated successfully.", "success")
+        return redirect(url_for("customers.view_customer", id=id))
+
+    return render_template(
+        "customers/form.html",
+        is_edit=True,
+        customer=customer,
+        errors={},
+    )
 
 
 @bp.route("/<int:id>/delete/confirm", methods=["GET"])
