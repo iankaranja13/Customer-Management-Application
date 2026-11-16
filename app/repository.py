@@ -5,8 +5,13 @@ use parameterized SQL statements (? placeholders) to guarantee protection agains
 SQL injection attacks.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from app.db import get_db
+
+
+def _current_timestamp() -> str:
+    """Return formatted UTC timestamp."""
+    return datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def get_all_customers(sort_by="created_at", order="desc", limit=10, offset=0):
@@ -62,7 +67,7 @@ def get_customer_by_email(email):
 def create_customer(data):
     """Insert a new customer record."""
     db = get_db()
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    now = _current_timestamp()
     cursor = db.execute(
         """
         INSERT INTO customers (
@@ -88,7 +93,7 @@ def create_customer(data):
 def update_customer(customer_id, data):
     """Update an existing customer record."""
     db = get_db()
-    now = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+    now = _current_timestamp()
     cursor = db.execute(
         """
         UPDATE customers
