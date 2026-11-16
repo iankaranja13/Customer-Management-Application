@@ -154,6 +154,7 @@ def search_customers(query_text, sort_by="created_at", order="desc", limit=10, o
         SELECT * FROM customers
         WHERE first_name LIKE ?
            OR last_name LIKE ?
+           OR (first_name || ' ' || last_name) LIKE ?
            OR email LIKE ?
            OR phone LIKE ?
            OR address LIKE ?
@@ -162,7 +163,7 @@ def search_customers(query_text, sort_by="created_at", order="desc", limit=10, o
         ORDER BY {field} {direction}
         LIMIT ? OFFSET ?
     """
-    cursor = db.execute(sql, (term, term, term, term, term, term, term, limit, offset))
+    cursor = db.execute(sql, (term, term, term, term, term, term, term, term, limit, offset))
     return cursor.fetchall()
 
 
@@ -177,12 +178,13 @@ def count_search_customers(query_text):
         SELECT COUNT(*) AS count FROM customers
         WHERE first_name LIKE ?
            OR last_name LIKE ?
+           OR (first_name || ' ' || last_name) LIKE ?
            OR email LIKE ?
            OR phone LIKE ?
            OR address LIKE ?
            OR city LIKE ?
            OR country LIKE ?
     """
-    cursor = db.execute(sql, (term, term, term, term, term, term, term))
+    cursor = db.execute(sql, (term, term, term, term, term, term, term, term))
     row = cursor.fetchone()
     return row["count"] if row else 0
