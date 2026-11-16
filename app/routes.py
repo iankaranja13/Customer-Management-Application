@@ -165,17 +165,22 @@ def edit_customer(id):
 
 @bp.route("/<int:id>/delete/confirm", methods=["GET"])
 def confirm_delete_customer(id):
-    """Placeholder for delete confirmation, expanded in feature/delete-customer."""
+    """Render confirmation page prior to customer deletion."""
     customer = repository.get_customer_by_id(id)
     if customer is None:
         abort(404, description=f"Customer #{id} not found.")
-    return redirect(url_for("customers.view_customer", id=id))
+    return render_template("customers/confirm_delete.html", customer=customer)
 
 
 @bp.route("/<int:id>/delete", methods=["POST"])
 def delete_customer(id):
-    """Placeholder for delete route, expanded in feature/delete-customer."""
+    """Delete a customer record (POST-only with confirmation)."""
     customer = repository.get_customer_by_id(id)
     if customer is None:
         abort(404, description=f"Customer #{id} not found.")
+
+    first_name = customer["first_name"]
+    last_name = customer["last_name"]
+    repository.delete_customer(id)
+    flash(f"Customer {first_name} {last_name} was successfully deleted.", "success")
     return redirect(url_for("customers.list_customers"))
