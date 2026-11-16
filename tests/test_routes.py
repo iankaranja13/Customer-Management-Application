@@ -81,5 +81,17 @@ def test_post_register_duplicate_email(client):
     assert "already registered" in response_text(res2)
 
 
+def test_csrf_protection_blocks_unauthorized_post(app):
+    """When CSRF is enabled, POST without a valid CSRF token is rejected with 400."""
+    from app import create_app
+    csrf_app = create_app({"TESTING": True, "CSRF_ENABLED": True, "SECRET_KEY": "csrf-secret"})
+    client = csrf_app.test_client()
+
+    # Attempt POST without token
+    res = client.post("/customers/new", data={"first_name": "Test", "last_name": "User"})
+    assert res.status_code == 400
+    assert b"CSRF token validation failed" in res.data
+
+
 def response_text(res):
     return res.data.decode("utf-8")
