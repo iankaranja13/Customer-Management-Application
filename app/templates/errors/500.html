@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+
+{% block title %}Server Error (500){% endblock %}
+
+{% block content %}
+<div class="card error-card">
+    <div class="error-code">500</div>
+    <h1 class="error-title">Unexpected Server Error</h1>
+    <p class="error-message">
+        An unexpected error occurred while processing your request. Please try again or contact system support.
+    </p>
+    <div class="error-actions">
+        <a href="/customers" class="btn btn-primary">Return to Customers</a>
+    </div>
+</div>
+{% endblock %}
