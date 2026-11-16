@@ -18,6 +18,10 @@ def app():
         }
     )
 
+    with app.app_context():
+        from app.db import init_db
+        init_db()
+
     yield app
 
     os.close(db_fd)
