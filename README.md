@@ -14,16 +14,17 @@ Built with **Python**, **Flask**, **SQLite**, and vanilla web standards (HTML5/C
 
 ## 2. Features
 
-- **Customer Registration**: Register new customer profiles with field-level validation and real-time form feedback.
-- **Directory & List View**: Clean tabular display showing Customer ID, Full Name, Email, Phone, City, and quick action buttons.
-- **Pagination**: Paginated view with 10 records per page and next/previous controls.
-- **Sortable Columns**: Sort customers dynamically by ID, Name, Email, City, or Registration Date (ascending and descending).
-- **Multi-Field Search**: Real-time partial, case-insensitive search across First Name, Last Name, Full Name, Email, Phone, Address, City, and Country (`?q=term`).
-- **Profile Detail View**: Comprehensive view displaying all customer fields, creation timestamp, and last updated timestamp.
-- **Customer Updates**: Pre-filled edit form with self-ignoring duplicate email checks.
-- **Safe Customer Deletion**: POST-only delete operation with a dedicated confirmation step and irreversible action warnings.
-- **CSRF Protection**: Integrated session-based CSRF validation across all state-modifying requests.
-- **Mobile-Responsive & Accessible**: Clean CSS styled for desktops, tablets, and phones, with high-contrast text and visible focus states.
+- **Dashboard Metrics**: Live cards for Total Customers, Recently Added (last 30 days), and Cities Represented, all calculated from database records.
+- **Customer Registration**: Register new customer profiles through a polished modal with field-level validation and real-time form feedback.
+- **Directory & List View**: Professional directory with avatar initials, sortable columns (Customer, Email, City, Date Registered), and a compact per-row actions menu.
+- **Pagination & Page Size**: Paginated view with selectable page size (10/25/50 records per page) and next/previous controls.
+- **Multi-Field Search**: Live partial, case-insensitive search across First Name, Last Name, Full Name, Email, Phone, Address, City, and Country (`?q=term`), backed by a single server-side implementation.
+- **Profile Drawer**: Slide-over customer profile showing avatar, ID, contact details, and registration date, with Edit and Delete actions.
+- **Customer Updates**: Pre-filled edit form (modal or dedicated page) with self-ignoring duplicate email checks; customer IDs never change on update.
+- **Safe Customer Deletion**: POST-only delete operation with an explicit confirmation dialog and irreversible action warnings; remaining IDs compact to stay sequential.
+- **Toast Notifications**: Success and error feedback delivered as dismissible toast notifications.
+- **CSRF Protection**: Integrated session-based CSRF validation across all state-modifying requests, including modal submissions.
+- **Mobile-Responsive & Accessible**: Collapsible sidebar navigation, responsive customer cards on small screens, keyboard-dismissable dialogs, and visible focus states throughout.
 
 ---
 
@@ -97,6 +98,19 @@ pytest -v
 
 ---
 
+## 5b. Deploying to Vercel
+
+The project ships with a serverless entrypoint (`api/index.py`) and routing (`vercel.json`).
+
+```bash
+vercel env add SECRET_KEY production   # set a random secret for sessions/CSRF
+vercel --prod
+```
+
+On cold start the app creates its SQLite database in `/tmp` (from a bundled copy when present, otherwise from `schema.sql` plus the demo seed data). Note that serverless `/tmp` storage is **ephemeral**: records added on the deployed site can disappear when instances recycle, so the deployment is suited for demos and evaluation. For persistent production data, migrate `repository.py` to a hosted database.
+
+---
+
 ## 6. Project Structure
 
 ```
@@ -108,9 +122,9 @@ Customer-Management-Application/
 │   ├── validators.py         # Pure validation functions and normalizers
 │   ├── routes.py             # Flask Blueprint routes and request handlers
 │   ├── templates/            # Jinja2 presentation templates
-│   │   ├── base.html         # Base layout with header, nav, flash alerts, footer
+│   │   ├── base.html         # App shell: sidebar, topbar, toasts, modal/drawer roots
 │   │   ├── customers/
-│   │   │   ├── list.html     # Paginated, sortable directory & search results
+│   │   │   ├── list.html     # Dashboard stats, directory, search, cards & pagination
 │   │   │   ├── detail.html   # Customer profile detail view
 │   │   │   ├── form.html     # Reusable registration and edit form
 │   │   │   └── confirm_delete.html # Confirmation modal / page for deletion
@@ -119,8 +133,8 @@ Customer-Management-Application/
 │   │       ├── 404.html      # Friendly record not found page
 │   │       └── 500.html      # Internal server error page
 │   └── static/
-│       ├── style.css         # Modern, mobile-responsive CSS stylesheet
-│       └── app.js            # Progressive UI enhancements (alert dismissal)
+│       ├── style.css         # Blue-and-slate SaaS design system, responsive
+│       └── app.js            # Sidebar, modals, drawer, toasts, live search, validation
 ├── schema.sql                # SQLite database DDL schema and indexes
 ├── seed.py                   # Demo database seeder script (~15 records)
 ├── tests/                    # Comprehensive pytest test suite
@@ -133,7 +147,9 @@ Customer-Management-Application/
 │   ├── test_view_customers.py# List, detail, pagination, and sorting tests
 │   ├── test_search.py        # Multi-field search query tests
 │   ├── test_update_customer.py# Edit route and self-ignoring duplicate checks
-│   └── test_delete_customer.py# POST-only delete and confirmation tests
+│   ├── test_delete_customer.py# POST-only delete, confirmation, ID compaction tests
+│   ├── test_dashboard.py     # Dashboard stats and page-size selection tests
+│   └── test_json_api.py      # JSON responses for modals/drawer tests
 ├── pytest.ini                # Pytest configuration
 ├── requirements.txt          # Python dependencies (Flask, pytest)
 ├── run.py                    # Application launch script

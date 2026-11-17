@@ -3,11 +3,15 @@
 Encapsulates all customer-related endpoints inside a Flask Blueprint.
 Handles request dispatching, validation orchestration, repository calls,
 pagination, sorting, search, and template rendering.
+
+POST/GET endpoints serve HTML by default and JSON when the client sends
+``Accept: application/json`` (used by the dashboard modals and drawer).
 """
 
 import math
 from flask import (
     Blueprint,
+    jsonify,
     render_template,
     request,
     redirect,
@@ -20,6 +24,30 @@ from app.validators import validate_customer_data
 
 bp = Blueprint("customers", __name__, url_prefix="/customers")
 
+PER_PAGE_OPTIONS = (10, 25, 50)
+DEFAULT_PER_PAGE = 10
+RECENT_DAYS = 30
+
+
+def wants_json():
+    """Return True when the client explicitly asks for a JSON response."""
+    return "application/json" in request.headers.get("Accept", "")
+
+
+def customer_to_dict(customer):
+    """Serialize a customer row to a plain dict."""
+    return {key: customer[key] for key in customer.keys()}
+
+
+def dashboard_stats():
+    """Return live dashboard metrics derived from database records."""
+    return {
+        "total": repository.count_all_customers(),
+        "recent": repository.count_recent_customers(RECENT_DAYS),
+        "recent_days": RECENT_DAYS,
+        "cities": repository.count_distinct_cities(),
+    }
+
 
 @bp.route("", methods=["GET"])
 def list_customers():
@@ -28,7 +56,10 @@ def list_customers():
     if not page or page < 1:
         page = 1
 
-    per_page = 10
+    per_page = request.args.get("per_page", DEFAULT_PER_PAGE, type=int)
+    if per_page not in PER_PAGE_OPTIONS:
+        per_page = DEFAULT_PER_PAGE
+
     query = request.args.get("q", "").strip()
     sort_by = request.args.get("sort", "created_at").strip()
     order = request.args.get("order", "desc").strip().lower()
@@ -71,6 +102,8 @@ def list_customers():
         sort_by=sort_by,
         order=order,
         per_page=per_page,
+        per_page_options=PER_PAGE_OPTIONS,
+        stats=dashboard_stats(),
     )
 
 
@@ -88,6 +121,15 @@ def create_customer():
                 is_valid = False
 
         if not is_valid:
+            if wants_json():
+                return (
+                    jsonify(
+                        success=False,
+                        message="Please correct the errors in the form.",
+                        errors=errors,
+                    ),
+                    422,
+                )
             flash("Please correct the errors in the form.", "danger")
             return (
                 render_template(
@@ -100,7 +142,21 @@ def create_customer():
             )
 
         customer_id = repository.create_customer(cleaned)
-        flash(f"Customer {cleaned['first_name']} {cleaned['last_name']} added successfully.", "success")
+        message = (
+            f"Customer {cleaned['first_name']} {cleaned['last_name']} added successfully."
+        )
+        if wants_json():
+            customer = repository.get_customer_by_id(customer_id)
+            return (
+                jsonify(
+                    success=True,
+                    message=message,
+                    customer=customer_to_dict(customer),
+                    stats=dashboard_stats(),
+                ),
+                201,
+            )
+        flash(message, "success")
         return redirect(url_for("customers.list_customers"))
 
     return render_template(
@@ -116,7 +172,16 @@ def view_customer(id):
     """Display detailed profile of a single customer."""
     customer = repository.get_customer_by_id(id)
     if customer is None:
+        if wants_json():
+            return (
+                jsonify(
+                    success=False, message=f"Customer #{id} not found."
+                ),
+                404,
+            )
         abort(404, description=f"Customer #{id} not found.")
+    if wants_json():
+        return jsonify(success=True, customer=customer_to_dict(customer))
     return render_template("customers/detail.html", customer=customer)
 
 
@@ -125,6 +190,13 @@ def edit_customer(id):
     """Edit an existing customer profile."""
     customer = repository.get_customer_by_id(id)
     if customer is None:
+        if wants_json():
+            return (
+                jsonify(
+                    success=False, message=f"Customer #{id} not found."
+                ),
+                404,
+            )
         abort(404, description=f"Customer #{id} not found.")
 
     if request.method == "POST":
@@ -138,6 +210,15 @@ def edit_customer(id):
                 is_valid = False
 
         if not is_valid:
+            if wants_json():
+                return (
+                    jsonify(
+                        success=False,
+                        message="Please correct the errors in the form.",
+                        errors=errors,
+                    ),
+                    422,
+                )
             flash("Please correct the errors in the form.", "danger")
             form_data = dict(request.form)
             form_data["id"] = id
@@ -152,7 +233,18 @@ def edit_customer(id):
             )
 
         repository.update_customer(id, cleaned)
-        flash(f"Customer {cleaned['first_name']} {cleaned['last_name']} updated successfully.", "success")
+        message = (
+            f"Customer {cleaned['first_name']} {cleaned['last_name']} updated successfully."
+        )
+        if wants_json():
+            updated = repository.get_customer_by_id(id)
+            return jsonify(
+                success=True,
+                message=message,
+                customer=customer_to_dict(updated),
+                stats=dashboard_stats(),
+            )
+        flash(message, "success")
         return redirect(url_for("customers.view_customer", id=id))
 
     return render_template(
@@ -177,10 +269,20 @@ def delete_customer(id):
     """Delete a customer record (POST-only with confirmation)."""
     customer = repository.get_customer_by_id(id)
     if customer is None:
+        if wants_json():
+            return (
+                jsonify(
+                    success=False, message=f"Customer #{id} not found."
+                ),
+                404,
+            )
         abort(404, description=f"Customer #{id} not found.")
 
     first_name = customer["first_name"]
     last_name = customer["last_name"]
     repository.delete_customer(id)
-    flash(f"Customer {first_name} {last_name} was successfully deleted.", "success")
+    message = f"Customer {first_name} {last_name} was successfully deleted."
+    if wants_json():
+        return jsonify(success=True, message=message, stats=dashboard_stats())
+    flash(message, "success")
     return redirect(url_for("customers.list_customers"))

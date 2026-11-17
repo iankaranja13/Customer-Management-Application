@@ -74,3 +74,41 @@ def test_post_delete_nonexistent_customer(client):
     """POST /customers/99999/delete returns 404."""
     response = client.post("/customers/99999/delete")
     assert response.status_code == 404
+
+
+def test_delete_compacts_customer_ids(client, app):
+    """Deleting a customer shifts higher IDs down to fill the gap."""
+    with app.app_context():
+        ids = [
+            repository.create_customer(
+                {
+                    "first_name": "Test",
+                    "last_name": f"User{n}",
+                    "email": f"compact-user{n}@example.com",
+                    "phone": f"+1555000000{n}",
+                }
+            )
+            for n in range(1, 4)
+        ]
+    assert ids == [1, 2, 3]
+
+    response = client.post("/customers/2/delete", follow_redirects=True)
+    assert response.status_code == 200
+
+    with app.app_context():
+        # Former ID 3 now occupies ID 2; no record holds ID 3.
+        shifted = repository.get_customer_by_id(2)
+        assert shifted is not None
+        assert shifted["email"] == "compact-user3@example.com"
+        assert repository.get_customer_by_id(3) is None
+
+        # Next insert continues the compact sequence with no trailing gap.
+        new_id = repository.create_customer(
+            {
+                "first_name": "Test",
+                "last_name": "UserNew",
+                "email": "compact-user-new@example.com",
+                "phone": "+15550000009",
+            }
+        )
+        assert new_id == 3

@@ -1,144 +1,233 @@
 {% extends "base.html" %}
 
 {% block title %}Customers Directory{% endblock %}
+{% block breadcrumb %}Customers{% endblock %}
+{% block page_context %}{% if total == 1 %}1 record{% else %}{{ total }} records{% endif %} in directory{% endblock %}
 
 {% block content %}
 <div class="page-header">
     <div>
         <h1 class="page-title">Customers</h1>
-        <p class="page-subtitle">Directory of all registered organization customer profiles.</p>
+        <p class="page-subtitle">Manage and organise your organization's customer directory.</p>
     </div>
-    <a href="{{ url_for('customers.create_customer') }}" class="btn btn-primary">+ Add Customer</a>
+    <a href="{{ url_for('customers.create_customer') }}" class="btn btn-primary" data-modal="create">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+            <line x1="12" y1="5" x2="12" y2="19"></line>
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+        </svg>
+        Add Customer
+    </a>
 </div>
 
-{# Search and toolbar #}
-<div class="toolbar">
-    <form method="GET" action="{{ url_for('customers.list_customers') }}" class="search-form" role="search">
-        <div class="search-input-wrapper">
-            <span class="search-icon" aria-hidden="true">🔍</span>
-            <input type="search"
-                   name="q"
-                   class="search-input"
-                   placeholder="Search name, email, phone, city..."
-                   value="{{ query if query else '' }}"
-                   aria-label="Search customers">
+{# Live dashboard metrics, calculated from database records #}
+<section class="stats" aria-label="Customer metrics">
+    <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path>
+                <circle cx="9" cy="7" r="4"></circle>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"></path>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"></path>
+            </svg>
+        </span>
+        <div class="stat-body">
+            <span class="stat-value" data-stat="total">{{ stats.total }}</span>
+            <span class="stat-label">Total Customers</span>
+            <span class="stat-sub">All records in the directory</span>
         </div>
-        {% if sort_by %}<input type="hidden" name="sort" value="{{ sort_by }}">{% endif %}
-        {% if order %}<input type="hidden" name="order" value="{{ order }}">{% endif %}
-        <button type="submit" class="btn btn-secondary btn-sm">Search</button>
-        {% if query %}
-            <a href="{{ url_for('customers.list_customers', sort=sort_by, order=order) }}" class="clear-search">Clear</a>
-        {% endif %}
-    </form>
-
-    <div class="results-info">
-        {% if total == 0 %}
-            0 customers
-        {% elif query %}
-            Found <strong>{{ total }}</strong> matching {% if total == 1 %}customer{% else %}customers{% endif %}
-        {% else %}
-            Showing <strong>{{ customers|length }}</strong> of <strong>{{ total }}</strong> {% if total == 1 %}customer{% else %}customers{% endif %}
-        {% endif %}
     </div>
-</div>
-
-<div class="card" style="padding: 0; overflow: hidden;">
-    {% if customers %}
-        <div class="table-responsive" style="border: none; box-shadow: none;">
-            <table class="table">
-                <thead>
-                    <tr>
-                        <th>
-                            <a href="{{ url_for('customers.list_customers', q=query, sort='id', order='asc' if sort_by == 'id' and order == 'desc' else 'desc') }}"
-                               title="Sort by ID">
-                                ID {% if sort_by == 'id' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                            </a>
-                        </th>
-                        <th>
-                            <a href="{{ url_for('customers.list_customers', q=query, sort='name', order='desc' if sort_by == 'name' and order == 'asc' else 'asc') }}"
-                               title="Sort by Name">
-                                Name {% if sort_by == 'name' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                            </a>
-                        </th>
-                        <th>
-                            <a href="{{ url_for('customers.list_customers', q=query, sort='email', order='desc' if sort_by == 'email' and order == 'asc' else 'asc') }}"
-                               title="Sort by Email">
-                                Email {% if sort_by == 'email' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                            </a>
-                        </th>
-                        <th>Phone</th>
-                        <th>
-                            <a href="{{ url_for('customers.list_customers', q=query, sort='city', order='desc' if sort_by == 'city' and order == 'asc' else 'asc') }}"
-                               title="Sort by City">
-                                City {% if sort_by == 'city' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                            </a>
-                        </th>
-                        <th>
-                            <a href="{{ url_for('customers.list_customers', q=query, sort='created_at', order='asc' if sort_by == 'created_at' and order == 'desc' else 'desc') }}"
-                               title="Sort by Date Created">
-                                Registered {% if sort_by == 'created_at' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}
-                            </a>
-                        </th>
-                        <th style="text-align: right;">Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for customer in customers %}
-                    <tr>
-                        <td><span style="color: var(--text-muted); font-size: 0.85rem;">#{{ customer.id }}</span></td>
-                        <td>
-                            <a href="{{ url_for('customers.view_customer', id=customer.id) }}" style="font-weight: 600;">
-                                {{ customer.first_name }} {{ customer.last_name }}
-                            </a>
-                        </td>
-                        <td><a href="mailto:{{ customer.email }}" style="color: var(--text-secondary);">{{ customer.email }}</a></td>
-                        <td>{{ customer.phone }}</td>
-                        <td>{{ customer.city or '—' }}</td>
-                        <td style="color: var(--text-muted); font-size: 0.85rem;">
-                            {{ customer.created_at[:10] if customer.created_at else '—' }}
-                        </td>
-                        <td class="table-actions">
-                            <a href="{{ url_for('customers.view_customer', id=customer.id) }}" class="btn btn-secondary btn-sm" title="View details">View</a>
-                            <a href="{{ url_for('customers.edit_customer', id=customer.id) }}" class="btn btn-secondary btn-sm" title="Edit customer">Edit</a>
-                            <a href="{{ url_for('customers.confirm_delete_customer', id=customer.id) }}" class="btn btn-outline-danger btn-sm" title="Delete customer">Delete</a>
-                        </td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+    <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="10"></circle>
+                <polyline points="12 6 12 12 16 14"></polyline>
+            </svg>
+        </span>
+        <div class="stat-body">
+            <span class="stat-value" data-stat="recent">{{ stats.recent }}</span>
+            <span class="stat-label">Recently Added</span>
+            <span class="stat-sub">Last 30 days</span>
         </div>
+    </div>
+    <div class="stat-card">
+        <span class="stat-icon" aria-hidden="true">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path>
+                <circle cx="12" cy="10" r="3"></circle>
+            </svg>
+        </span>
+        <div class="stat-body">
+            <span class="stat-value" data-stat="cities">{{ stats.cities }}</span>
+            <span class="stat-label">Cities Represented</span>
+            <span class="stat-sub">Unique customer cities</span>
+        </div>
+    </div>
+</section>
 
-        {# Pagination component #}
-        {% if total_pages > 1 %}
-            <nav aria-label="Customer list pagination" style="padding: 1rem 1.5rem;">
-                <ul class="pagination">
-                    <li class="page-item {% if page <= 1 %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('customers.list_customers', page=page-1, q=query, sort=sort_by, order=order) }}" aria-label="Previous Page">&laquo; Prev</a>
-                    </li>
-                    {% for p in range(1, total_pages + 1) %}
-                        <li class="page-item {% if p == page %}active{% endif %}">
-                            <a class="page-link" href="{{ url_for('customers.list_customers', page=p, q=query, sort=sort_by, order=order) }}">{{ p }}</a>
-                        </li>
-                    {% endfor %}
-                    <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
-                        <a class="page-link" href="{{ url_for('customers.list_customers', page=page+1, q=query, sort=sort_by, order=order) }}" aria-label="Next Page">Next &raquo;</a>
-                    </li>
-                </ul>
-            </nav>
-        {% endif %}
-    {% else %}
-        <div class="empty-state">
-            <div class="empty-icon">👥</div>
+<section class="card directory" aria-label="Customer directory">
+    <div class="directory-toolbar">
+        <form method="GET" action="{{ url_for('customers.list_customers') }}" class="search-form" id="search-form" role="search"
+              data-sort="{{ sort_by }}" data-order="{{ order }}" data-per-page="{{ per_page }}">
+            <div class="search-input-wrapper">
+                <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="8"></circle>
+                    <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                </svg>
+                <input type="search"
+                       name="q"
+                       id="search-input"
+                       class="search-input"
+                       placeholder="Search name, email, phone, city..."
+                       value="{{ query if query else '' }}"
+                       aria-label="Search customers"
+                       autocomplete="off">
+            </div>
+            <input type="hidden" name="sort" value="{{ sort_by }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <input type="hidden" name="per_page" value="{{ per_page }}">
+            <button type="submit" class="btn btn-secondary">Search</button>
             {% if query %}
-                <h2 class="empty-title">No results found for "{{ query }}"</h2>
-                <p class="empty-description">Try checking for spelling errors or searching with a different term.</p>
-                <a href="{{ url_for('customers.list_customers') }}" class="btn btn-secondary">Clear Search Filter</a>
+                <a href="{{ url_for('customers.list_customers', sort=sort_by, order=order, per_page=per_page) }}" class="clear-search">Clear</a>
+            {% endif %}
+        </form>
+
+        <form method="GET" action="{{ url_for('customers.list_customers') }}" class="per-page-form" aria-label="Rows per page">
+            <label for="per_page">Show</label>
+            <select name="per_page" id="per_page" data-autosubmit>
+                {% for option in per_page_options %}
+                    <option value="{{ option }}" {% if option == per_page %}selected{% endif %}>{{ option }}</option>
+                {% endfor %}
+            </select>
+            <span class="per-page-suffix">per page</span>
+            <input type="hidden" name="q" value="{{ query if query else '' }}">
+            <input type="hidden" name="sort" value="{{ sort_by }}">
+            <input type="hidden" name="order" value="{{ order }}">
+            <noscript><button type="submit" class="btn btn-secondary btn-sm">Apply</button></noscript>
+        </form>
+    </div>
+
+    <div id="directory-results">
+        <div class="results-info">
+            {% if total == 0 %}
+                0 customers
+            {% elif query %}
+                Found <strong>{{ total }}</strong> matching {% if total == 1 %}customer{% else %}customers{% endif %}
             {% else %}
-                <h2 class="empty-title">No customers yet</h2>
-                <p class="empty-description">Your customer directory is currently empty. Start by adding your first customer.</p>
-                <a href="{{ url_for('customers.create_customer') }}" class="btn btn-primary">+ Add First Customer</a>
+                Showing <strong>{{ customers|length }}</strong> of <strong>{{ total }}</strong> {% if total == 1 %}customer{% else %}customers{% endif %}
             {% endif %}
         </div>
-    {% endif %}
-</div>
+
+        {% if customers %}
+            <div class="table-responsive">
+                <table class="table directory-table">
+                    <thead>
+                        <tr>
+                            {% if sort_by == 'name' %}{% set name_next = 'desc' if order == 'asc' else 'asc' %}{% else %}{% set name_next = 'asc' %}{% endif %}
+                            {% if sort_by == 'email' %}{% set email_next = 'desc' if order == 'asc' else 'asc' %}{% else %}{% set email_next = 'asc' %}{% endif %}
+                            {% if sort_by == 'city' %}{% set city_next = 'desc' if order == 'asc' else 'asc' %}{% else %}{% set city_next = 'asc' %}{% endif %}
+                            {% if sort_by == 'created_at' %}{% set date_next = 'asc' if order == 'desc' else 'desc' %}{% else %}{% set date_next = 'desc' %}{% endif %}
+                            <th aria-sort="{% if sort_by == 'name' %}{{ 'ascending' if order == 'asc' else 'descending' }}{% else %}none{% endif %}">
+                                <a class="th-sort" href="{{ url_for('customers.list_customers', q=query, sort='name', order=name_next, per_page=per_page) }}">Customer <span class="sort-ind" aria-hidden="true">{% if sort_by == 'name' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</span></a>
+                            </th>
+                            <th aria-sort="{% if sort_by == 'email' %}{{ 'ascending' if order == 'asc' else 'descending' }}{% else %}none{% endif %}">
+                                <a class="th-sort" href="{{ url_for('customers.list_customers', q=query, sort='email', order=email_next, per_page=per_page) }}">Email <span class="sort-ind" aria-hidden="true">{% if sort_by == 'email' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</span></a>
+                            </th>
+                            <th>Phone</th>
+                            <th aria-sort="{% if sort_by == 'city' %}{{ 'ascending' if order == 'asc' else 'descending' }}{% else %}none{% endif %}">
+                                <a class="th-sort" href="{{ url_for('customers.list_customers', q=query, sort='city', order=city_next, per_page=per_page) }}">City <span class="sort-ind" aria-hidden="true">{% if sort_by == 'city' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</span></a>
+                            </th>
+                            <th aria-sort="{% if sort_by == 'created_at' %}{{ 'ascending' if order == 'asc' else 'descending' }}{% else %}none{% endif %}">
+                                <a class="th-sort" href="{{ url_for('customers.list_customers', q=query, sort='created_at', order=date_next, per_page=per_page) }}">Date Registered <span class="sort-ind" aria-hidden="true">{% if sort_by == 'created_at' %}{{ '▲' if order == 'asc' else '▼' }}{% endif %}</span></a>
+                            </th>
+                            <th class="th-actions"><span class="sr-only">Actions</span></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for customer in customers %}
+                        <tr>
+                            <td>
+                                <div class="customer-cell">
+                                    <span class="avatar avatar-{{ customer.email|avatar_color }}" aria-hidden="true">{{ customer.first_name[0] }}{{ customer.last_name[0] }}</span>
+                                    <a class="customer-name" href="{{ url_for('customers.view_customer', id=customer.id) }}" data-action="view" data-id="{{ customer.id }}">{{ customer.first_name }} {{ customer.last_name }}</a>
+                                </div>
+                            </td>
+                            <td><a class="table-email" href="mailto:{{ customer.email }}">{{ customer.email }}</a></td>
+                            <td class="nowrap">{{ customer.phone }}</td>
+                            <td>{{ customer.city or '—' }}</td>
+                            <td class="nowrap">{{ customer.created_at|format_date }}</td>
+                            <td class="row-actions">
+                                <details class="row-menu">
+                                    <summary class="row-menu-btn" aria-label="Actions">
+                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                            <circle cx="12" cy="5" r="1.8"></circle>
+                                            <circle cx="12" cy="12" r="1.8"></circle>
+                                            <circle cx="12" cy="19" r="1.8"></circle>
+                                        </svg>
+                                    </summary>
+                                    <div class="row-menu-list" role="menu">
+                                        <a href="{{ url_for('customers.view_customer', id=customer.id) }}" data-action="view" data-id="{{ customer.id }}" role="menuitem">View</a>
+                                        <a href="{{ url_for('customers.edit_customer', id=customer.id) }}" data-action="edit" data-id="{{ customer.id }}" role="menuitem">Edit</a>
+                                        <a href="{{ url_for('customers.confirm_delete_customer', id=customer.id) }}" class="menu-danger" data-action="delete" data-id="{{ customer.id }}" role="menuitem">Delete</a>
+                                    </div>
+                                </details>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+
+            {# Mobile-friendly card layout rendering the same records #}
+            <ul class="customer-cards">
+                {% for customer in customers %}
+                <li class="customer-card">
+                    <span class="avatar avatar-{{ customer.email|avatar_color }}" aria-hidden="true">{{ customer.first_name[0] }}{{ customer.last_name[0] }}</span>
+                    <div class="customer-card-body">
+                        <a class="customer-card-name" href="{{ url_for('customers.view_customer', id=customer.id) }}" data-action="view" data-id="{{ customer.id }}">{{ customer.first_name }} {{ customer.last_name }}</a>
+                        <p class="customer-card-meta">{{ customer.email }}</p>
+                        <p class="customer-card-meta">{{ customer.phone }}{% if customer.city %} &middot; {{ customer.city }}{% endif %}</p>
+                        <p class="customer-card-sub">Registered {{ customer.created_at|format_date }}</p>
+                    </div>
+                    <div class="customer-card-actions">
+                        <a href="{{ url_for('customers.view_customer', id=customer.id) }}" data-action="view" data-id="{{ customer.id }}">View</a>
+                        <a href="{{ url_for('customers.edit_customer', id=customer.id) }}" data-action="edit" data-id="{{ customer.id }}">Edit</a>
+                        <a href="{{ url_for('customers.confirm_delete_customer', id=customer.id) }}" class="card-danger" data-action="delete" data-id="{{ customer.id }}">Delete</a>
+                    </div>
+                </li>
+                {% endfor %}
+            </ul>
+
+            {# Pagination component #}
+            {% if total_pages > 1 %}
+                <nav class="pagination-nav" aria-label="Customer list pagination">
+                    <ul class="pagination">
+                        <li class="page-item {% if page <= 1 %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('customers.list_customers', page=page-1, q=query, sort=sort_by, order=order, per_page=per_page) }}" {% if page <= 1 %}aria-disabled="true" tabindex="-1"{% endif %} aria-label="Previous Page">&laquo; Prev</a>
+                        </li>
+                        {% for p in range(1, total_pages + 1) %}
+                            <li class="page-item {% if p == page %}active{% endif %}" {% if p == page %}aria-current="page"{% endif %}>
+                                <a class="page-link" href="{{ url_for('customers.list_customers', page=p, q=query, sort=sort_by, order=order, per_page=per_page) }}">{{ p }}</a>
+                            </li>
+                        {% endfor %}
+                        <li class="page-item {% if page >= total_pages %}disabled{% endif %}">
+                            <a class="page-link" href="{{ url_for('customers.list_customers', page=page+1, q=query, sort=sort_by, order=order, per_page=per_page) }}" {% if page >= total_pages %}aria-disabled="true" tabindex="-1"{% endif %} aria-label="Next Page">Next &raquo;</a>
+                        </li>
+                    </ul>
+                </nav>
+            {% endif %}
+        {% else %}
+            <div class="empty-state">
+                {% if query %}
+                    <h2 class="empty-title">No results found for "{{ query }}"</h2>
+                    <p class="empty-description">Try checking for spelling errors or searching with a different term.</p>
+                    <a href="{{ url_for('customers.list_customers', per_page=per_page) }}" class="btn btn-secondary">Clear Search Filter</a>
+                {% else %}
+                    <h2 class="empty-title">No customers yet</h2>
+                    <p class="empty-description">Your customer directory is currently empty. Start by adding your first customer.</p>
+                    <a href="{{ url_for('customers.create_customer') }}" class="btn btn-primary" data-modal="create">+ Add First Customer</a>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</section>
 {% endblock %}

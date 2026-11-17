@@ -5,7 +5,7 @@ use parameterized SQL statements (? placeholders) to guarantee protection agains
 SQL injection attacks.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from app.db import get_db
 
 
@@ -42,6 +42,33 @@ def count_all_customers():
     """Count total number of customers."""
     db = get_db()
     cursor = db.execute("SELECT COUNT(*) AS count FROM customers")
+    row = cursor.fetchone()
+    return row["count"] if row else 0
+
+
+def count_recent_customers(days=30):
+    """Count customers registered within the last `days` days."""
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).strftime(
+        "%Y-%m-%d %H:%M:%S"
+    )
+    db = get_db()
+    cursor = db.execute(
+        "SELECT COUNT(*) AS count FROM customers WHERE created_at >= ?", (cutoff,)
+    )
+    row = cursor.fetchone()
+    return row["count"] if row else 0
+
+
+def count_distinct_cities():
+    """Count unique non-empty customer cities (case-insensitive)."""
+    db = get_db()
+    cursor = db.execute(
+        """
+        SELECT COUNT(DISTINCT LOWER(TRIM(city))) AS count
+        FROM customers
+        WHERE city IS NOT NULL AND TRIM(city) <> ''
+        """
+    )
     row = cursor.fetchone()
     return row["count"] if row else 0
 
@@ -124,11 +151,31 @@ def update_customer(customer_id, data):
 
 
 def delete_customer(customer_id):
-    """Delete a customer record by ID."""
+    """Delete a customer record by ID and compact remaining IDs.
+
+    Higher IDs shift down to fill the gap so IDs stay sequential,
+    and the autoincrement sequence resets so the next insert
+    continues without a trailing gap.
+    """
     db = get_db()
     cursor = db.execute("DELETE FROM customers WHERE id = ?", (customer_id,))
+    if cursor.rowcount == 0:
+        return False
+    rows = db.execute(
+        "SELECT id FROM customers WHERE id > ? ORDER BY id ASC", (customer_id,)
+    ).fetchall()
+    for row in rows:
+        db.execute("UPDATE customers SET id = id - 1 WHERE id = ?", (row["id"],))
+    max_row = db.execute("SELECT MAX(id) AS max_id FROM customers").fetchone()
+    if max_row["max_id"] is None:
+        db.execute("DELETE FROM sqlite_sequence WHERE name = 'customers'")
+    else:
+        db.execute(
+            "UPDATE sqlite_sequence SET seq = ? WHERE name = 'customers'",
+            (max_row["max_id"],),
+        )
     db.commit()
-    return cursor.rowcount > 0
+    return True
 
 
 def search_customers(query_text, sort_by="created_at", order="desc", limit=10, offset=0):

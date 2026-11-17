@@ -1,5 +1,7 @@
+import hashlib
 import os
 import secrets
+from datetime import datetime
 from flask import Flask, redirect, url_for, session, request, abort, render_template
 
 
@@ -8,9 +10,13 @@ def create_app(test_config=None):
     app = Flask(__name__, instance_relative_config=True)
 
     # Base configuration
-    db_default_path = os.path.abspath(
-        os.path.join(os.path.dirname(__file__), "..", "customers.db")
-    )
+    if os.environ.get("VERCEL"):
+        # Serverless: only /tmp is writable (ephemeral per deployment region).
+        db_default_path = "/tmp/customers.db"
+    else:
+        db_default_path = os.path.abspath(
+            os.path.join(os.path.dirname(__file__), "..", "customers.db")
+        )
     app.config.from_mapping(
         SECRET_KEY=os.environ.get("SECRET_KEY", "dev-secret-key-replace-in-production"),
         DATABASE=os.environ.get("DATABASE_PATH", db_default_path),
@@ -33,6 +39,21 @@ def create_app(test_config=None):
         return session["_csrf_token"]
 
     app.jinja_env.globals["csrf_token"] = get_csrf_token
+
+    def format_date(value):
+        """Format a 'YYYY-MM-DD HH:MM:SS' timestamp as 'Mon DD, YYYY'."""
+        try:
+            return datetime.strptime(value, "%Y-%m-%d %H:%M:%S").strftime("%b %d, %Y")
+        except (ValueError, TypeError):
+            return (value or "")[:10]
+
+    def avatar_color(key):
+        """Return a deterministic avatar palette index (0-7) for a key."""
+        digest = hashlib.md5(str(key if key else "?").encode("utf-8")).hexdigest()
+        return int(digest, 16) % 8
+
+    app.jinja_env.filters["format_date"] = format_date
+    app.jinja_env.filters["avatar_color"] = avatar_color
 
     @app.before_request
     def check_csrf():
